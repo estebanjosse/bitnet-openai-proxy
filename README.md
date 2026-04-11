@@ -12,11 +12,10 @@ Self-host a lightweight, 1-bit LLM inference server that speaks the OpenAI API p
 ## Table of Contents
 
 - [Overview](#overview)
-- [Architecture](#architecture)
-- [Docker Images](#docker-images)
 - [Quick Start](#quick-start)
   - [Demo Mode](#demo-mode)
   - [Production Mode](#production-mode)
+- [Docker Images](#docker-images)
 - [Environment Variables](#environment-variables)
 - [API Usage](#api-usage)
 - [Model Management](#model-management)
@@ -37,54 +36,6 @@ Key goals for v1:
 - Minimal runtime footprint: the C++ `llama-server` binary is the only inference process.
 - Two deployment flavours: a **demo image** for instant evaluation, and a **production image** for real deployments.
 - Simple configuration via environment variables.
-
----
-
-## Architecture
-
-```
-┌──────────────────────────────────────────────────────┐
-│                   Docker Container                    │
-│                                                       │
-│   ┌───────────────────────────────────────────────┐  │
-│   │          llama-server (C++ binary)            │  │
-│   │   BitNet.cpp · llama.cpp-compatible runtime   │  │
-│   │                                               │  │
-│   │   GET/POST /v1/chat/completions               │  │
-│   │   GET       /v1/models                        │  │
-│   │   GET       /health                           │  │
-│   └───────────────────────────────────────────────┘  │
-│                        ▲                              │
-│              model file (.gguf) loaded                │
-│           from image layer OR mounted volume          │
-└──────────────────────────────────────────────────────┘
-              ▲
-     HTTP requests (OpenAI-compatible)
-```
-
-The inference engine is BitNet.cpp's native C++ server (`llama-server`), which already exposes OpenAI-compatible endpoints. There is no Python/FastAPI proxy layer in v1 — requests go straight to the compiled binary, keeping latency low and the attack surface small.
-
----
-
-## Docker Images
-
-### Multi-stage Build
-
-The `Dockerfile` uses a **two-stage build** to keep the runtime image lean:
-
-| Stage | Base image | Purpose |
-|-------|-----------|---------|
-| `builder` | `ubuntu:22.04` (or similar build image) | Compiles BitNet.cpp from a pinned commit/tag |
-| `runtime` | `ubuntu:22.04` (minimal) | Contains only the compiled binary and shared libraries |
-
-The model is **never baked into the production image**. Model files are large, change frequently, and are better managed separately.
-
-### Image Variants
-
-| Variant | Tag suffix | Model included | Intended use |
-|---------|-----------|----------------|-------------|
-| **Demo** | `-demo` | ✅ Yes (baked in) | Quick evaluation, CI smoke-tests, demos |
-| **Production** | *(default)* | ❌ No | Real deployments; model loaded at runtime |
 
 ---
 
@@ -166,6 +117,28 @@ services:
 ```bash
 docker compose up -d
 ```
+
+---
+
+## Docker Images
+
+### Multi-stage Build
+
+The `Dockerfile` uses a **two-stage build** to keep the runtime image lean:
+
+| Stage | Base image | Purpose |
+|-------|-----------|---------|
+| `builder` | `ubuntu:22.04` (or similar build image) | Compiles BitNet.cpp from a pinned commit/tag |
+| `runtime` | `ubuntu:22.04` (minimal) | Contains only the compiled binary and shared libraries |
+
+The model is **never baked into the production image**. Model files are large, change frequently, and are better managed separately.
+
+### Image Variants
+
+| Variant | Tag suffix | Model included | Intended use |
+|---------|-----------|----------------|-------------|
+| **Demo** | `-demo` | ✅ Yes (baked in) | Quick evaluation, CI smoke-tests, demos |
+| **Production** | *(default)* | ❌ No | Real deployments; model loaded at runtime |
 
 ---
 
@@ -383,13 +356,13 @@ Reproducibility. BitNet.cpp is under active development; pinning to a tested com
 The following features are planned for future versions:
 
 - [ ] **Streaming responses** — server-sent events for `stream: true` requests
-- [ ] **OpenAI Responses API** — compatibility with the newer `POST /v1/responses` endpoint
-- [ ] **Embeddings** — `POST /v1/embeddings` support
 - [ ] **Tool / function calling** — structured output and tool-use support
-- [ ] **ARM64 GHCR images** — pre-built images for Apple Silicon and ARM servers
-- [ ] **Kubernetes Helm chart** — production-grade deployment manifests
+- [ ] **OpenAI Responses API** — compatibility with the newer `POST /v1/responses` endpoint
 - [ ] **Metrics endpoint** — Prometheus-compatible `/metrics` for inference throughput and latency
 - [ ] **Authentication** — optional API-key enforcement at the server level
+- [ ] **Embeddings** — `POST /v1/embeddings` support
+- [ ] **ARM64 GHCR images** — pre-built images for Apple Silicon and ARM servers
+- [ ] **Kubernetes Helm chart** — production-grade deployment manifests
 
 ---
 
