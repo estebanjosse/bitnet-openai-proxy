@@ -140,7 +140,7 @@ This implementation plan breaks down the bitnet-openai-proxy feature into discre
     - Assert output equals `{X.Y.Z-demo, X.Y-demo, X-demo, latest-demo}` for demo
     - Run minimum 10 iterations
 
-  - [ ] 5.5 Implement smoke-test job
+  - [x] 5.5 Implement smoke-test job
     - Start production container with test GGUF model via `MODEL_PATH`
     - Poll `GET /health` endpoint every 5 seconds, timeout after 60 seconds
     - Assert HTTP 200 response from health check
