@@ -69,4 +69,6 @@ if [ -n "$N_THREADS" ]; then
     SERVER_ARGS="$SERVER_ARGS --threads $N_THREADS"
 fi
 
-# TODO (task 3.4): exec llama-server with resolved model path and flags
+# Replace the shell process with llama-server (ensures correct signal handling and PID 1 behaviour)
+# shellcheck disable=SC2086
+exec llama-server $SERVER_ARGS

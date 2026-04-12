@@ -71,7 +71,7 @@ This implementation plan breaks down the bitnet-openai-proxy feature into discre
     - Build `llama-server` command line with all flags
     - _Requirements: 2.7, 2.8, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
 
-  - [ ] 3.4 Execute llama-server
+  - [x] 3.4 Execute llama-server
     - Use `exec` to replace shell process with `llama-server`
     - Pass resolved model path via `--model` flag
     - Pass all environment-derived flags
