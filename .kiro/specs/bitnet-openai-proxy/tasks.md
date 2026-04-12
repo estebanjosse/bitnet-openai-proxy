@@ -61,7 +61,7 @@ This implementation plan breaks down the bitnet-openai-proxy feature into discre
     - Exit with non-zero code on errors
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6_
 
-  - [ ] 3.3 Implement environment variable to CLI flag mapping
+  - [x] 3.3 Implement environment variable to CLI flag mapping
     - Map `SERVER_HOST` to `--host` (default: `0.0.0.0`)
     - Map `SERVER_PORT` to `--port` (default: `8080`)
     - Map `CTX_SIZE` to `--ctx-size` (default: `2048`)

@@ -46,5 +46,27 @@ if [ "$DOWNLOAD_ONLY" -eq 1 ]; then
     exit 0
 fi
 
-# TODO (task 3.3): environment variable to llama-server CLI flag mapping
+# ---------------------------------------------------------------------------
+# Environment variable to llama-server CLI flag mapping
+# ---------------------------------------------------------------------------
+SERVER_HOST="${SERVER_HOST:-0.0.0.0}"
+SERVER_PORT="${SERVER_PORT:-8080}"
+CTX_SIZE="${CTX_SIZE:-2048}"
+N_PARALLEL="${N_PARALLEL:-1}"
+LOG_LEVEL="${LOG_LEVEL:-info}"
+N_THREADS="${N_THREADS:-}"
+
+# Build the llama-server command line
+SERVER_ARGS="--model $MODEL_FILE_PATH"
+SERVER_ARGS="$SERVER_ARGS --host $SERVER_HOST"
+SERVER_ARGS="$SERVER_ARGS --port $SERVER_PORT"
+SERVER_ARGS="$SERVER_ARGS --ctx-size $CTX_SIZE"
+SERVER_ARGS="$SERVER_ARGS --parallel $N_PARALLEL"
+SERVER_ARGS="$SERVER_ARGS --log-level $LOG_LEVEL"
+
+# N_THREADS is omitted when not set to allow llama-server to auto-detect
+if [ -n "$N_THREADS" ]; then
+    SERVER_ARGS="$SERVER_ARGS --threads $N_THREADS"
+fi
+
 # TODO (task 3.4): exec llama-server with resolved model path and flags
