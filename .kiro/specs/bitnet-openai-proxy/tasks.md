@@ -41,11 +41,6 @@ This implementation plan breaks down the bitnet-openai-proxy feature into discre
     - Set `ENV MODEL_PATH=/models/<default-model-file>`
     - _Requirements: 5.1, 5.2, 5.3_
 
-  - [ ] 2.4 Add Dockerfile documentation comments
-    - Document `BITNET_COMMIT` build argument usage
-    - Document `CMAKE_EXTRA_FLAGS` examples for x86-64 AVX2, AVX-512, and ARM64
-    - Document build targets (production vs demo)
-    - _Requirements: 1.7, 9.4_
 
 - [ ] 3. Implement entrypoint script
   - [ ] 3.1 Create entrypoint.sh with POSIX shell
