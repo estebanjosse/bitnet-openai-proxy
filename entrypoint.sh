@@ -56,13 +56,23 @@ N_PARALLEL="${N_PARALLEL:-1}"
 LOG_LEVEL="${LOG_LEVEL:-info}"
 N_THREADS="${N_THREADS:-}"
 
+# Map LOG_LEVEL name to llama-server numeric verbosity (--verbosity N).
+# This version of llama.cpp uses --verbosity instead of --log-level.
+case "$LOG_LEVEL" in
+    error)   LOG_VERBOSITY=0 ;;
+    warn)    LOG_VERBOSITY=1 ;;
+    info)    LOG_VERBOSITY=2 ;;
+    debug)   LOG_VERBOSITY=3 ;;
+    *)       LOG_VERBOSITY=2 ;;
+esac
+
 # Build the llama-server command line
 SERVER_ARGS="--model $MODEL_FILE_PATH"
 SERVER_ARGS="$SERVER_ARGS --host $SERVER_HOST"
 SERVER_ARGS="$SERVER_ARGS --port $SERVER_PORT"
 SERVER_ARGS="$SERVER_ARGS --ctx-size $CTX_SIZE"
 SERVER_ARGS="$SERVER_ARGS --parallel $N_PARALLEL"
-SERVER_ARGS="$SERVER_ARGS --log-level $LOG_LEVEL"
+SERVER_ARGS="$SERVER_ARGS --verbosity $LOG_VERBOSITY"
 
 # N_THREADS is omitted when not set to allow llama-server to auto-detect
 if [ -n "$N_THREADS" ]; then

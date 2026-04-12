@@ -89,6 +89,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install the Hugging Face Hub CLI for model downloads at container startup.
 RUN pip3 install --no-cache-dir huggingface-hub
 
+# Copy cmake-produced shared libraries from the builder stage into a standard
+# library path, then update the dynamic linker cache so llama-server can resolve
+# them at startup. Docker COPY does not recurse across subdirectories with a glob,
+# so we use a bind-mount with find+cp to collect all .so* files produced under
+# /build/cmake-build/ (libllama.so, libggml.so, libggml-base.so, etc.).
+RUN --mount=type=bind,from=builder,source=/build/cmake-build,target=/build/cmake-build \
+    find /build/cmake-build -name '*.so*' -exec cp -P {} /usr/local/lib/ \; \
+    && ldconfig
+
 # Copy the llama-server binary from the builder stage.
 COPY --from=builder /build/cmake-build/bin/llama-server /usr/local/bin/llama-server
 
