@@ -71,3 +71,35 @@ RUN pip3 install --no-cache-dir /build/BitNet/3rdparty/llama.cpp/gguf-py \
         -DCMAKE_CXX_COMPILER=clang++-18 \
         ${CMAKE_EXTRA_FLAGS} \
     && cmake --build /build/cmake-build --target llama-server --parallel $(nproc)
+
+# ── Runtime stage ─────────────────────────────────────────────────────────────
+FROM ubuntu:22.04 AS runtime
+
+# Install runtime dependencies only (no build tools).
+# libstdc++6 and libgomp1 are required by the llama-server binary.
+# python3 and python3-pip are included solely for the huggingface-cli download tool.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libstdc++6 \
+        libgomp1 \
+        curl \
+        python3 \
+        python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install the Hugging Face Hub CLI for model downloads at container startup.
+RUN pip3 install --no-cache-dir huggingface-hub
+
+# Copy the llama-server binary from the builder stage.
+COPY --from=builder /build/cmake-build/bin/llama-server /usr/local/bin/llama-server
+
+# Create the models directory for volume mounts or downloaded models.
+RUN mkdir /models
+
+# Copy the entrypoint script and make it executable.
+# Note: entrypoint.sh is created in task 3.
+#COPY entrypoint.sh /entrypoint.sh
+#RUN chmod +x /entrypoint.sh
+
+EXPOSE 8080
+
+ENTRYPOINT ["/entrypoint.sh"]

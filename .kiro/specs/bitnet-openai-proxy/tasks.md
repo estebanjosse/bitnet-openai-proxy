@@ -24,7 +24,7 @@ This implementation plan breaks down the bitnet-openai-proxy feature into discre
     - Run cmake with `CMAKE_EXTRA_FLAGS` and compile `llama-server` binary
     - _Requirements: 1.1, 1.2, 1.5, 1.6_
 
-  - [ ] 2.2 Implement runtime stage
+  - [x] 2.2 Implement runtime stage
     - Use `ubuntu:22.04` as minimal base image
     - Install runtime dependencies only (libstdc++6, libgomp1, curl, python3, pip)
     - Install `huggingface-hub` Python package for CLI tool
