@@ -51,7 +51,7 @@ This implementation plan breaks down the bitnet-openai-proxy feature into discre
     - Parse `--download-only` optional argument
     - _Requirements: 2.4_
 
-  - [ ] 3.2 Implement model path resolution logic
+  - [x] 3.2 Implement model path resolution logic
     - Check if `MODEL_PATH` is set and file exists
     - If `MODEL_PATH` not set, check for `MODEL_REPO` and `MODEL_FILE`
     - Implement Hugging Face download using `huggingface-cli download`
