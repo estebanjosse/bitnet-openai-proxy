@@ -123,7 +123,7 @@ This implementation plan breaks down the bitnet-openai-proxy feature into discre
     - Configure jobs to run on push to main, version tags, and pull requests
     - _Requirements: 7.1, 7.5_
 
-  - [ ] 5.3 Implement tag generation logic
+  - [x] 5.3 Implement tag generation logic
     - Configure `docker/metadata-action` for production tags
     - Push to main: generate `latest`, `main-<sha7>` tags
     - Version tag `vX.Y.Z`: generate `X.Y.Z`, `X.Y`, `X`, `latest` tags

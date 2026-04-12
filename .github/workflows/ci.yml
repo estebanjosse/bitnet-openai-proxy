@@ -39,7 +39,19 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE_NAME }}
-          # Tag rules are implemented in task 5.3
+          flavor: |
+            latest=false
+          tags: |
+            # Push to main: latest + main-<sha7>
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=main-,format=short,enable={{is_default_branch}}
+            # Version tag vX.Y.Z: semver major, major.minor, major.minor.patch, latest
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            # Pull request: pr-<number> (no push)
+            type=ref,event=pr,prefix=pr-
 
       - name: Build production image
         uses: docker/build-push-action@v6
@@ -77,7 +89,20 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE_NAME }}
-          # Tag rules (with -demo suffix) are implemented in task 5.3
+          flavor: |
+            latest=false
+            suffix=-demo
+          tags: |
+            # Push to main: latest-demo + main-<sha7>-demo
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=main-,format=short,enable={{is_default_branch}}
+            # Version tag vX.Y.Z: semver tags with -demo suffix
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            # Pull request: pr-<number>-demo (no push)
+            type=ref,event=pr,prefix=pr-
 
       - name: Build demo image
         uses: docker/build-push-action@v6
