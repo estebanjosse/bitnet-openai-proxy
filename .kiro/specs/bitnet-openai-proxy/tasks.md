@@ -6,7 +6,7 @@ This implementation plan breaks down the bitnet-openai-proxy feature into discre
 
 ## Tasks
 
-- [ ] 1. Set up project structure and Git submodule
+- [x] 1. Set up project structure and Git submodule
   - Create `3rdparty/` directory
   - Add BitNet.cpp as a Git submodule at `3rdparty/BitNet` pointing to `https://github.com/estebanjosse/BitNet`
   - Pin the submodule to a tested commit
