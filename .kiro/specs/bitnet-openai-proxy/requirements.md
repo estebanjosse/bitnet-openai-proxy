@@ -35,8 +35,8 @@
 3. THE Runtime_Stage SHALL copy only the `llama-server` binary and shared libraries from the Builder_Stage.
 4. THE Runtime_Stage SHALL use a minimal base image (`ubuntu:22.04` or equivalent).
 5. THE Dockerfile SHALL expose a `CMAKE_EXTRA_FLAGS` build argument to pass additional CMake flags at compile time.
-6. WHEN `CMAKE_EXTRA_FLAGS` is not provided, THE Builder_Stage SHALL compile with AVX2 flags enabled by default for x86-64.
-7. WHERE the `--platform linux/arm64` build argument is provided, THE Builder_Stage SHALL accept ARM64 flags via `CMAKE_EXTRA_FLAGS`.
+6. WHEN `CMAKE_EXTRA_FLAGS` is not provided, THE Builder_Stage SHALL compile with the default `-DBITNET_X86_TL2=OFF` flag (portable i2_s quantization path).
+7. WHERE the `--platform linux/arm64` build argument is provided, THE Builder_Stage SHALL accept ARM64 flags via `CMAKE_EXTRA_FLAGS` (e.g. `-DBITNET_ARM_TL1=ON`).
 
 ---
 
@@ -146,6 +146,6 @@
 #### Acceptance Criteria
 
 1. THE Dockerfile SHALL accept a `CMAKE_EXTRA_FLAGS` build argument to pass additional CMake optimisation flags.
-2. WHEN `CMAKE_EXTRA_FLAGS` contains `-DBITNET_AVX512=ON`, THE Builder_Stage SHALL compile BitNet.cpp with AVX-512 support.
-3. WHEN the build is run with `--platform linux/arm64` and `CMAKE_EXTRA_FLAGS` contains `-DBITNET_ARM_TL1=ON`, THE Builder_Stage SHALL compile BitNet.cpp with ARM64 optimisations.
-4. THE Dockerfile SHALL document the recommended `CMAKE_EXTRA_FLAGS` values for x86-64 (AVX2, AVX-512) and ARM64 architectures in comments.
+2. WHEN `CMAKE_EXTRA_FLAGS` contains `-DBITNET_X86_TL2=ON`, THE Builder_Stage SHALL compile BitNet.cpp with TL2 LUT kernel support for x86-64.
+3. WHEN the build is run with `--platform linux/arm64` and `CMAKE_EXTRA_FLAGS` contains `-DBITNET_ARM_TL1=ON`, THE Builder_Stage SHALL compile BitNet.cpp with ARM64 TL1 kernel optimisations.
+4. THE Dockerfile SHALL document the recommended `CMAKE_EXTRA_FLAGS` values for x86-64 (i2_s default, TL2) and ARM64 architectures in comments.

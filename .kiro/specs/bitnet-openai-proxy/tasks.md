@@ -17,10 +17,12 @@ This implementation plan breaks down the bitnet-openai-proxy feature into discre
 - [ ] 2. Create multi-stage Dockerfile
   - [x] 2.1 Implement builder stage
     - Define `ARG BITNET_COMMIT` with default from submodule
-    - Define `ARG CMAKE_EXTRA_FLAGS` with default `-DBITNET_AVX2=ON`
+    - Define `ARG CMAKE_EXTRA_FLAGS` with default `-DBITNET_X86_TL2=OFF`
     - Use `ubuntu:22.04` as base image
-    - Install build dependencies (cmake ≥ 3.22, clang ≥ 18, git, python3, make)
-    - Copy BitNet.cpp submodule from build context
+    - Install build dependencies (cmake ≥ 3.22, clang-18, git, python3, pip)
+    - Clone BitNet.cpp from GitHub at `BITNET_COMMIT` and run `git submodule update --init --recursive` (plain `COPY` cannot initialise nested submodules)
+    - Install `gguf-py` from the cloned repo (`3rdparty/llama.cpp/gguf-py`)
+    - Copy pretuned kernel header to `include/bitnet-lut-kernels.h` before cmake (unconditionally required by `ggml-bitnet-lut.cpp`)
     - Run cmake with `CMAKE_EXTRA_FLAGS` and compile `llama-server` binary
     - _Requirements: 1.1, 1.2, 1.5, 1.6_
 
@@ -158,7 +160,7 @@ This implementation plan breaks down the bitnet-openai-proxy feature into discre
 - [ ] 6. Write static inspection tests for Dockerfile and CI workflow
   - [ ]* 6.1 Write smoke tests for Dockerfile correctness
     - Assert Dockerfile declares `ARG BITNET_COMMIT`
-    - Assert Dockerfile declares `ARG CMAKE_EXTRA_FLAGS` with default `-DBITNET_AVX2=ON`
+    - Assert Dockerfile declares `ARG CMAKE_EXTRA_FLAGS` with default `-DBITNET_X86_TL2=OFF`
     - Assert runtime stage `FROM` is `ubuntu:22.04`
     - Assert Dockerfile has `EXPOSE 8080`
     - Assert demo target sets `ENV MODEL_PATH`
@@ -197,7 +199,7 @@ This implementation plan breaks down the bitnet-openai-proxy feature into discre
     - Add Docker Compose example
     - Document environment variables table
     - Add API usage examples
-    - Add build commands for x86-64 AVX2 (default), x86-64 AVX-512, and ARM64
+    - Add build commands for x86-64 i2_s (default), x86-64 TL2, and ARM64 TL1
     - Document `CMAKE_EXTRA_FLAGS` usage
     - _Requirements: 3.1, 4.1, 4.2, 4.3, 5.1, 5.2, 6.1, 6.2, 6.3, 9.1, 9.2, 9.3, 9.4_
 

@@ -75,10 +75,15 @@ A single `Dockerfile` with two named stages and one optional build target.
 **Builder stage** (`builder`):
 - Base: `ubuntu:22.04`
 - Build arguments:
-  - `BITNET_COMMIT` — Git commit SHA of BitNet.cpp (optional; defaults to the commit pinned in the Git submodule at `3rdparty/BitNet`)
-  - `CMAKE_EXTRA_FLAGS` — additional CMake flags (default: `-DBITNET_AVX2=ON` for x86-64 portability)
-- Steps: install build dependencies (cmake ≥ 3.22, clang ≥ 18, git, python3), copy the BitNet.cpp submodule from the build context (or clone at `BITNET_COMMIT` if provided), run `cmake` + `make`, produce `llama-server` and its shared libraries.
-- **Submodule strategy**: The repository includes a Git submodule at `3rdparty/BitNet` pointing to `estebanjosse/BitNet` at a tested commit. If `BITNET_COMMIT` is not provided, the Dockerfile uses the submodule's pinned commit. If `BITNET_COMMIT` is provided, it overrides the submodule and clones that specific commit.
+  - `BITNET_COMMIT` — Git commit SHA of BitNet.cpp (defaults to the commit pinned in the Git submodule at `3rdparty/BitNet`)
+  - `CMAKE_EXTRA_FLAGS` — additional CMake flags (default: `-DBITNET_X86_TL2=OFF` for the portable i2_s quantization path)
+- Steps:
+  1. Install build dependencies (cmake ≥ 3.22, clang-18, git, python3, pip).
+  2. Clone `estebanjosse/BitNet` at `BITNET_COMMIT` and run `git submodule update --init --recursive` to populate the nested `llama.cpp` submodule. A full git clone is required — a plain `COPY` of the submodule directory has no `.git` metadata and cannot initialise nested submodules.
+  3. Install `gguf-py` (bundled inside the cloned repo at `3rdparty/llama.cpp/gguf-py`) — required by BitNet's codegen scripts.
+  4. Copy a pretuned kernel header to `include/bitnet-lut-kernels.h`. BitNet's `ggml-bitnet-lut.cpp` unconditionally includes this header at compile time regardless of cmake flags; it must exist before cmake runs. The preset for `bitnet_b1_58-3B` (also used by `BitNet-b1.58-2B-4T`) is used as a generic baseline. The header's symbols are only called at runtime when `GGML_BITNET_X86_TL2` or `GGML_BITNET_ARM_TL1` is defined.
+  5. Run `cmake` with `CMAKE_EXTRA_FLAGS` and build the `llama-server` target.
+- **Submodule strategy**: The builder always clones from GitHub at the pinned `BITNET_COMMIT`. The local `3rdparty/BitNet` submodule in the repository serves only as a reference for the default commit SHA; it is not copied into the Docker build context.
 
 **Runtime stage** (`runtime`):
 - Base: `ubuntu:22.04` (minimal, no build tools)
@@ -95,13 +100,14 @@ A single `Dockerfile` with two named stages and one optional build target.
 
 **Build argument documentation** (Dockerfile comments):
 ```
-# BITNET_COMMIT: Optional. Defaults to the commit pinned in 3rdparty/BitNet submodule.
+# BITNET_COMMIT: Git commit SHA to clone from estebanjosse/BitNet.
+#                Defaults to the commit pinned in the 3rdparty/BitNet submodule.
 #                Override with --build-arg BITNET_COMMIT=<sha> to test a specific commit.
 #
 # CMAKE_EXTRA_FLAGS examples:
-# x86-64 AVX2 (default):  --build-arg CMAKE_EXTRA_FLAGS="-DBITNET_AVX2=ON"
-# x86-64 AVX-512:         --build-arg CMAKE_EXTRA_FLAGS="-DBITNET_AVX512=ON"
-# ARM64:  --platform linux/arm64 --build-arg CMAKE_EXTRA_FLAGS="-DBITNET_ARM_TL1=ON"
+# x86-64 i2_s (default):  --build-arg CMAKE_EXTRA_FLAGS="-DBITNET_X86_TL2=OFF"
+# x86-64 TL2 kernels:     --build-arg CMAKE_EXTRA_FLAGS="-DBITNET_X86_TL2=ON"
+# ARM64 TL1 kernels:      --platform linux/arm64 --build-arg CMAKE_EXTRA_FLAGS="-DBITNET_ARM_TL1=ON"
 ```
 
 ### 2. entrypoint.sh
@@ -226,8 +232,8 @@ LOG_LEVEL      enum     "debug" | "info" | "warn" | "error" (default: "info")
 ### Docker image build arguments
 
 ```
-BITNET_COMMIT      string   Git commit SHA to clone (optional; defaults to 3rdparty/BitNet submodule commit)
-CMAKE_EXTRA_FLAGS  string   Additional CMake flags (default: "-DBITNET_AVX2=ON")
+BITNET_COMMIT      string   Git commit SHA to clone from estebanjosse/BitNet (defaults to 3rdparty/BitNet submodule commit)
+CMAKE_EXTRA_FLAGS  string   Additional CMake flags (default: "-DBITNET_X86_TL2=OFF")
 ```
 
 ### Git submodule
