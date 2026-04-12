@@ -113,24 +113,41 @@ EXPOSE 8080
 
 ENTRYPOINT ["/entrypoint.sh"]
 
-# ── Demo target ───────────────────────────────────────────────────────────────
-# Build with: docker build --target demo -t bitnet-openai-proxy:demo .
-#
-# Downloads the default BitNet GGUF model at image build time so the container
-# can be started with no environment variables for quick evaluation.
+# ── Model downloader stage ────────────────────────────────────────────────────
+# Isolated stage whose only job is to download the GGUF model.
+# Because its inputs are only DEMO_MODEL_REPO and DEMO_MODEL_FILE, Docker caches
+# this layer independently of any changes to the runtime stage (entrypoint,
+# libraries, etc.). The model is only re-downloaded when those ARGs change.
 #
 # Default model: microsoft/bitnet-b1.58-2B-4T-gguf / ggml-model-i2_s.gguf
 # Override at build time with:
 #   --build-arg DEMO_MODEL_REPO=<hf-repo-id>
 #   --build-arg DEMO_MODEL_FILE=<filename.gguf>
-FROM runtime AS demo
+FROM ubuntu:22.04 AS model-downloader
 
 ARG DEMO_MODEL_REPO=microsoft/bitnet-b1.58-2B-4T-gguf
 ARG DEMO_MODEL_FILE=ggml-model-i2_s.gguf
 
-# Download the model into /models at build time.
-RUN hf download "$DEMO_MODEL_REPO" "$DEMO_MODEL_FILE" \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        python3 \
+        python3-pip \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip3 install --no-cache-dir huggingface-hub
+
+RUN mkdir /models \
+    && hf download "$DEMO_MODEL_REPO" "$DEMO_MODEL_FILE" \
         --local-dir /models
+
+# ── Demo target ───────────────────────────────────────────────────────────────
+# Build with: docker build --target demo -t bitnet-openai-proxy:demo .
+#
+# Copies the pre-downloaded model from the cached model-downloader stage.
+# Changes to the runtime stage do not invalidate the model download cache.
+FROM runtime AS demo
+
+ARG DEMO_MODEL_FILE=ggml-model-i2_s.gguf
+
+COPY --from=model-downloader /models /models
 
 # Set MODEL_PATH so the entrypoint uses the bundled model without any user-supplied env vars.
 ENV MODEL_PATH=/models/${DEMO_MODEL_FILE}
