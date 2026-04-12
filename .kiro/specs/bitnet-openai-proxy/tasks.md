@@ -115,7 +115,7 @@ This implementation plan breaks down the bitnet-openai-proxy feature into discre
     - Set up GHCR authentication using `GITHUB_TOKEN`
     - _Requirements: 7.6_
 
-  - [ ] 5.2 Implement build jobs for both image variants
+  - [x] 5.2 Implement build jobs for both image variants
     - Create `build-production` job using `docker/build-push-action`
     - Create `build-demo` job with `--target demo` flag
     - Use `docker/setup-buildx-action` for BuildKit
