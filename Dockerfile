@@ -1,0 +1,73 @@
+# BITNET_COMMIT: Git commit SHA to clone from estebanjosse/BitNet.
+#                Defaults to the commit pinned in the 3rdparty/BitNet submodule.
+#                Override with --build-arg BITNET_COMMIT=<sha> to test a specific commit.
+#
+# CMAKE_EXTRA_FLAGS examples:
+# x86-64 i2_s (default):  --build-arg CMAKE_EXTRA_FLAGS="-DBITNET_X86_TL2=OFF"
+# x86-64 TL2 kernels:     --build-arg CMAKE_EXTRA_FLAGS="-DBITNET_X86_TL2=ON"
+# ARM64 TL1 kernels:      --platform linux/arm64 --build-arg CMAKE_EXTRA_FLAGS="-DBITNET_ARM_TL1=ON"
+
+# ── Builder stage ─────────────────────────────────────────────────────────────
+FROM ubuntu:22.04 AS builder
+
+ARG BITNET_COMMIT=caf1ce1de9096b7c32fb058061cf08c79a972761
+ARG CMAKE_EXTRA_FLAGS="-DBITNET_X86_TL2=OFF"
+
+# Install build dependencies.
+# cmake from the Kitware apt repo ensures version ≥ 3.22 (Ubuntu 22.04 ships 3.22.1,
+# but we pin via the official Kitware repo for reliability).
+# clang-18 is required by BitNet.cpp for its LUT kernel compilation.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        gnupg \
+        lsb-release \
+        software-properties-common \
+    && curl -fsSL https://apt.kitware.com/keys/kitware-archive-latest.asc \
+        | gpg --dearmor -o /usr/share/keyrings/kitware-archive-keyring.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] \
+        https://apt.kitware.com/ubuntu/ $(lsb_release -cs) main" \
+        > /etc/apt/sources.list.d/kitware.list \
+    && add-apt-repository -y ppa:ubuntu-toolchain-r/test \
+    && curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key \
+        | gpg --dearmor -o /usr/share/keyrings/llvm-archive-keyring.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/llvm-archive-keyring.gpg] \
+        https://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" \
+        > /etc/apt/sources.list.d/llvm-18.list \
+    && apt-get update && apt-get install -y --no-install-recommends \
+        cmake \
+        clang-18 \
+        git \
+        make \
+        python3 \
+        python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Use clang-18 as the default C/C++ compiler.
+ENV CC=clang-18
+ENV CXX=clang++-18
+
+WORKDIR /build
+
+# Clone BitNet.cpp at the pinned commit and initialise nested submodules.
+# A full git clone is required so that `git submodule update` can resolve
+# the nested llama.cpp submodule — a plain COPY of the directory has no
+# .git metadata and cannot initialise submodules.
+RUN git clone https://github.com/estebanjosse/BitNet /build/BitNet \
+    && git -C /build/BitNet checkout "$BITNET_COMMIT" \
+    && git -C /build/BitNet submodule update --init --recursive
+
+# Configure and build llama-server.
+# BitNet's build unconditionally includes include/bitnet-lut-kernels.h, which must
+# be generated before cmake runs. We copy the pretuned TL2 kernel header for the
+# bitnet_b1_58-3B preset (also used by BitNet-b1.58-2B-4T) as a generic baseline.
+# The header is only active at runtime when GGML_BITNET_X86_TL2 is defined; for
+# the default i2_s path it is included but its symbols are never called.
+RUN pip3 install --no-cache-dir /build/BitNet/3rdparty/llama.cpp/gguf-py \
+    && cp /build/BitNet/preset_kernels/bitnet_b1_58-3B/bitnet-lut-kernels-tl2.h \
+          /build/BitNet/include/bitnet-lut-kernels.h \
+    && cmake -S /build/BitNet -B /build/cmake-build \
+        -DCMAKE_C_COMPILER=clang-18 \
+        -DCMAKE_CXX_COMPILER=clang++-18 \
+        ${CMAKE_EXTRA_FLAGS} \
+    && cmake --build /build/cmake-build --target llama-server --parallel $(nproc)

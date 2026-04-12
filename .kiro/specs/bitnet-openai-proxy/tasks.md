@@ -15,7 +15,7 @@ This implementation plan breaks down the bitnet-openai-proxy feature into discre
   - _Requirements: 1.1_
 
 - [ ] 2. Create multi-stage Dockerfile
-  - [ ] 2.1 Implement builder stage
+  - [x] 2.1 Implement builder stage
     - Define `ARG BITNET_COMMIT` with default from submodule
     - Define `ARG CMAKE_EXTRA_FLAGS` with default `-DBITNET_AVX2=ON`
     - Use `ubuntu:22.04` as base image
