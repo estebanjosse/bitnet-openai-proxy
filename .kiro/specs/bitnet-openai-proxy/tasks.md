@@ -10,7 +10,8 @@ This implementation plan breaks down the bitnet-openai-proxy feature into discre
   - Create `3rdparty/` directory
   - Add BitNet.cpp as a Git submodule at `3rdparty/BitNet` pointing to `https://github.com/estebanjosse/BitNet`
   - Pin the submodule to a tested commit
-  - Create `.gitmodules` configuration
+  - Create `.gitmodules` configuration file
+  - Create `.dockerignore` excluding `.git/`, `.kiro/`, and test artifacts while keeping `3rdparty/BitNet`
   - _Requirements: 1.1_
 
 - [ ] 2. Create multi-stage Dockerfile
@@ -30,8 +31,9 @@ This implementation plan breaks down the bitnet-openai-proxy feature into discre
     - Copy `llama-server` binary from builder stage
     - Copy required shared libraries from builder stage
     - Create `/models` directory
+    - Copy `entrypoint.sh` into the image and set it as `ENTRYPOINT`
     - Set `EXPOSE 8080`
-    - _Requirements: 1.3, 1.4_
+    - _Requirements: 1.3, 1.4, 2.1_
 
   - [ ] 2.3 Implement demo build target
     - Extend runtime stage with `demo` target
@@ -106,11 +108,8 @@ This implementation plan breaks down the bitnet-openai-proxy feature into discre
     - Test empty `MODEL_PATH` → exit 1 with error
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.8, 3.2, 3.3, 3.4, 3.5, 3.6_
 
-- [ ] 4. Checkpoint - Verify Dockerfile and entrypoint
-  - Build production Docker image locally
-  - Build demo Docker image locally
-  - Test entrypoint script with mock llama-server
-  - Ensure all tests pass, ask the user if questions arise.
+- [ ] 4. Checkpoint - Verify entrypoint and Dockerfile structure
+  - Ensure all entrypoint tests pass, ask the user if questions arise.
 
 - [ ] 5. Implement GitHub Actions CI/CD workflow
   - [ ] 5.1 Create workflow file structure
@@ -161,14 +160,27 @@ This implementation plan breaks down the bitnet-openai-proxy feature into discre
     - Mark workflow as failed if smoke-test fails
     - _Requirements: 7.2, 7.3, 7.7_
 
-- [ ] 6. Checkpoint - Verify CI/CD pipeline
-  - Test workflow locally using `act` or similar tool
-  - Verify tag generation logic produces correct tags
-  - Verify smoke-test catches broken images
+- [ ] 6. Write static inspection tests for Dockerfile and CI workflow
+  - [ ]* 6.1 Write smoke tests for Dockerfile correctness
+    - Assert Dockerfile declares `ARG BITNET_COMMIT`
+    - Assert Dockerfile declares `ARG CMAKE_EXTRA_FLAGS` with default `-DBITNET_AVX2=ON`
+    - Assert runtime stage `FROM` is `ubuntu:22.04`
+    - Assert Dockerfile has `EXPOSE 8080`
+    - Assert demo target sets `ENV MODEL_PATH`
+    - _Requirements: 1.1, 1.4, 1.5, 1.6, 5.3_
+
+  - [ ]* 6.2 Write smoke tests for CI workflow correctness
+    - Assert workflow builds both variants on push to `main`
+    - Assert push step is conditioned on smoke-test success
+    - Assert workflow uses `GITHUB_TOKEN` for GHCR login
+    - Assert health-check loop has a 60-second timeout
+    - _Requirements: 7.1, 7.2, 7.6, 8.4_
+
+- [ ] 7. Checkpoint - Verify CI/CD pipeline and static tests
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 7. Create integration test suite
-  - [ ]* 7.1 Write integration tests for OpenAI API compatibility
+- [ ] 8. Create integration test suite
+  - [ ]* 8.1 Write integration tests for OpenAI API compatibility
     - Test `GET /health` returns HTTP 200 when server ready
     - Test `GET /v1/models` returns valid OpenAI models JSON
     - Test `POST /v1/chat/completions` with valid payload returns HTTP 200
@@ -176,50 +188,25 @@ This implementation plan breaks down the bitnet-openai-proxy feature into discre
     - Test demo image starts with no env vars and serves requests
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 5.2, 6.2_
 
-  - [ ]* 7.2 Write integration tests for model loading scenarios
+  - [ ]* 8.2 Write integration tests for model loading scenarios
     - Test production image with `MODEL_PATH` (mounted volume)
     - Test production image with `MODEL_REPO` + `MODEL_FILE` (HF download)
     - Test production image with `HF_TOKEN` for gated repos
     - Test `--download-only` mode downloads model and exits
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 6.2_
 
-- [ ] 8. Add CPU optimization build variants documentation
-  - [ ] 8.1 Document build commands for different architectures
-    - Add examples for x86-64 AVX2 (default)
-    - Add examples for x86-64 AVX-512
-    - Add examples for ARM64 with TL1 optimizations
-    - Document `CMAKE_EXTRA_FLAGS` usage in README
-    - _Requirements: 9.1, 9.2, 9.3, 9.4_
-
-  - [ ]* 8.2 Test build variants locally
-    - Build with AVX2 flags (default)
-    - Build with AVX-512 flags
-    - Build ARM64 variant (if ARM hardware available)
-    - Verify each variant produces working binary
-    - _Requirements: 9.1, 9.2, 9.3_
-
-- [ ] 9. Final integration and documentation
-  - [ ] 9.1 Update README with usage examples
+- [ ] 9. Add README documentation
+  - [ ] 9.1 Update README with usage examples and build documentation
     - Add quick start examples for demo mode
     - Add quick start examples for production mode (HF download and mounted volume)
     - Add Docker Compose example
     - Document environment variables table
     - Add API usage examples
-    - _Requirements: 3.1, 4.1, 4.2, 4.3, 5.1, 5.2, 6.1, 6.2, 6.3_
+    - Add build commands for x86-64 AVX2 (default), x86-64 AVX-512, and ARM64
+    - Document `CMAKE_EXTRA_FLAGS` usage
+    - _Requirements: 3.1, 4.1, 4.2, 4.3, 5.1, 5.2, 6.1, 6.2, 6.3, 9.1, 9.2, 9.3, 9.4_
 
-  - [ ] 9.2 Create .dockerignore file
-    - Exclude `.git/` directory
-    - Exclude `.kiro/` directory
-    - Exclude test files and CI artifacts
-    - Keep `3rdparty/BitNet` submodule for build context
-
-- [ ] 10. Final checkpoint - End-to-end validation
-  - Build both image variants from scratch
-  - Run full integration test suite
-  - Test demo image with no configuration
-  - Test production image with mounted model
-  - Test production image with HF download
-  - Verify CI workflow runs successfully
+- [ ] 10. Final checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes
@@ -231,4 +218,4 @@ This implementation plan breaks down the bitnet-openai-proxy feature into discre
 - Unit tests validate specific examples and edge cases
 - Integration tests verify end-to-end functionality with real containers
 - The entrypoint script is the only custom logic component requiring extensive testing
-- Dockerfile and CI workflow are primarily declarative and verified through smoke tests
+- Dockerfile and CI workflow are primarily declarative and verified through static inspection and smoke tests
