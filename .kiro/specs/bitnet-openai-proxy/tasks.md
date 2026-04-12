@@ -109,7 +109,7 @@ This implementation plan breaks down the bitnet-openai-proxy feature into discre
   - Ensure all entrypoint tests pass, ask the user if questions arise.
 
 - [ ] 5. Implement GitHub Actions CI/CD workflow
-  - [ ] 5.1 Create workflow file structure
+  - [x] 5.1 Create workflow file structure
     - Create `.github/workflows/ci.yml`
     - Define workflow name and triggers (push to main, version tags, pull requests)
     - Set up GHCR authentication using `GITHUB_TOKEN`
