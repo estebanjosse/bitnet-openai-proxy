@@ -97,8 +97,8 @@ RUN mkdir /models
 
 # Copy the entrypoint script and make it executable.
 # Note: entrypoint.sh is created in task 3.
-#COPY entrypoint.sh /entrypoint.sh
-#RUN chmod +x /entrypoint.sh
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 EXPOSE 8080
 
