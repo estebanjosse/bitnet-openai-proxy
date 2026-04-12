@@ -45,7 +45,7 @@ This implementation plan breaks down the bitnet-openai-proxy feature into discre
 
 
 - [ ] 3. Implement entrypoint script
-  - [ ] 3.1 Create entrypoint.sh with POSIX shell
+  - [x] 3.1 Create entrypoint.sh with POSIX shell
     - Add shebang `#!/bin/sh`
     - Enable strict error handling (`set -e`, `set -u`)
     - Parse `--download-only` optional argument
