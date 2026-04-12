@@ -195,8 +195,76 @@ jobs:
     name: Push images to GHCR
     runs-on: ubuntu-latest
     needs: [smoke-test]
-    if: github.event_name != 'pull_request' && needs.smoke-test.result == 'success'
+    # Only push when smoke-test succeeded and this is not a pull request
+    if: needs.smoke-test.result == 'success' && github.event_name != 'pull_request'
     steps:
-      # Full push implementation is added in task 5.6
-      - name: Placeholder
-        run: echo "Push job — implementation coming in task 5.6"
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate production image metadata
+        id: meta-production
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          flavor: |
+            latest=false
+          tags: |
+            # Push to main: latest + main-<sha7>
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=main-,format=short,enable={{is_default_branch}}
+            # Version tag vX.Y.Z: semver major, major.minor, major.minor.patch, latest
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+
+      - name: Generate demo image metadata
+        id: meta-demo
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          flavor: |
+            latest=false
+            suffix=-demo
+          tags: |
+            # Push to main: latest-demo + main-<sha7>-demo
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=main-,format=short,enable={{is_default_branch}}
+            # Version tag vX.Y.Z: semver tags with -demo suffix
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+
+      - name: Push production image to GHCR
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta-production.outputs.tags }}
+          labels: ${{ steps.meta-production.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Push demo image to GHCR
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: demo
+          push: true
+          tags: ${{ steps.meta-demo.outputs.tags }}
+          labels: ${{ steps.meta-demo.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -149,7 +149,7 @@ This implementation plan breaks down the bitnet-openai-proxy feature into discre
     - Stop container after test
     - _Requirements: 8.1, 8.2, 8.3, 8.4_
 
-  - [ ] 5.6 Implement push job with conditional execution
+  - [x] 5.6 Implement push job with conditional execution
     - Create `push-ghcr` job that depends on smoke-test success
     - Condition push on `needs.smoke-test.result == 'success'`
     - Push both production and demo images to GHCR
