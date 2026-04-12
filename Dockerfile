@@ -103,3 +103,25 @@ RUN mkdir /models
 EXPOSE 8080
 
 ENTRYPOINT ["/entrypoint.sh"]
+
+# ── Demo target ───────────────────────────────────────────────────────────────
+# Build with: docker build --target demo -t bitnet-openai-proxy:demo .
+#
+# Downloads the default BitNet GGUF model at image build time so the container
+# can be started with no environment variables for quick evaluation.
+#
+# Default model: microsoft/bitnet-b1.58-2B-4T-gguf / ggml-model-i2_s.gguf
+# Override at build time with:
+#   --build-arg DEMO_MODEL_REPO=<hf-repo-id>
+#   --build-arg DEMO_MODEL_FILE=<filename.gguf>
+FROM runtime AS demo
+
+ARG DEMO_MODEL_REPO=microsoft/bitnet-b1.58-2B-4T-gguf
+ARG DEMO_MODEL_FILE=ggml-model-i2_s.gguf
+
+# Download the model into /models at build time.
+RUN hf download "$DEMO_MODEL_REPO" "$DEMO_MODEL_FILE" \
+        --local-dir /models
+
+# Set MODEL_PATH so the entrypoint uses the bundled model without any user-supplied env vars.
+ENV MODEL_PATH=/models/${DEMO_MODEL_FILE}

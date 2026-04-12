@@ -35,7 +35,7 @@ This implementation plan breaks down the bitnet-openai-proxy feature into discre
     - Set `EXPOSE 8080`
     - _Requirements: 1.3, 1.4, 2.1_
 
-  - [ ] 2.3 Implement demo build target
+  - [x] 2.3 Implement demo build target
     - Extend runtime stage with `demo` target
     - Add `RUN` step to download default GGUF model to `/models/` at build time
     - Set `ENV MODEL_PATH=/models/<default-model-file>`
