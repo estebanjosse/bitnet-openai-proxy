@@ -77,7 +77,7 @@ This implementation plan breaks down the bitnet-openai-proxy feature into discre
     - Pass all environment-derived flags
     - _Requirements: 2.1, 2.7_
 
-  - [ ]* 3.5 Write property test for entrypoint flag forwarding
+  - [x] 3.5 Write property test for entrypoint flag forwarding
     - **Property 1: Server flags are forwarded for any env var combination**
     - **Validates: Requirements 2.7**
     - Generate random values for SERVER_HOST, SERVER_PORT, CTX_SIZE, N_PARALLEL, LOG_LEVEL
