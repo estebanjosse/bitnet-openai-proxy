@@ -54,7 +54,7 @@ This implementation plan breaks down the bitnet-openai-proxy feature into discre
   - [x] 3.2 Implement model path resolution logic
     - Check if `MODEL_PATH` is set and file exists
     - If `MODEL_PATH` not set, check for `MODEL_REPO` and `MODEL_FILE`
-    - Implement Hugging Face download using `huggingface-cli download`
+    - Implement Hugging Face download using `hf download`
     - Pass `HF_TOKEN` to download command when set
     - Handle `--download-only` mode (download and exit without starting server)
     - Print explicit error messages for missing or invalid model configuration
@@ -95,7 +95,7 @@ This implementation plan breaks down the bitnet-openai-proxy feature into discre
 
   - [ ]* 3.7 Write unit tests for entrypoint edge cases
     - Test `MODEL_PATH` set → `--model` flag present
-    - Test `MODEL_REPO` + `MODEL_FILE` → `huggingface-cli download` called
+    - Test `MODEL_REPO` + `MODEL_FILE` → `hf download` called
     - Test `HF_TOKEN` set → `--token` flag present in download
     - Test `HF_TOKEN` not set → `--token` flag absent
     - Test `--download-only` → server not started, exit 0

@@ -33,7 +33,7 @@ graph TD
 
     EP -->|exec| LS
     EP -->|reads MODEL_PATH| VOL
-    EP -->|huggingface-cli download| HF
+    EP -->|hf download| HF
     HF -->|GGUF file| EP
 ```
 
@@ -60,7 +60,7 @@ flowchart TD
     VALIDATE -->|no| ERR1([error + exit 1])
     VALIDATE -->|yes| LAUNCH[exec llama-server]
     CHECK_PATH -->|no| CHECK_HF{MODEL_REPO +\nMODEL_FILE set?}
-    CHECK_HF -->|yes| DOWNLOAD[huggingface-cli download] --> LAUNCH
+    CHECK_HF -->|yes| DOWNLOAD[hf download] --> LAUNCH
     CHECK_HF -->|no| ERR2([error + exit 1])
 ```
 
@@ -135,7 +135,7 @@ A POSIX shell script (`#!/bin/sh`) that is the container `ENTRYPOINT`.
 
 **Hugging Face download:**
 ```sh
-huggingface-cli download "$MODEL_REPO" "$MODEL_FILE" \
+hf download "$MODEL_REPO" "$MODEL_FILE" \
     --local-dir /models \
     ${HF_TOKEN:+--token "$HF_TOKEN"}
 ```
@@ -276,7 +276,7 @@ The entrypoint script contains the only custom logic in this project (the Docker
 |---|---|
 | Neither `MODEL_PATH` nor (`MODEL_REPO` + `MODEL_FILE`) set | Print error to stderr, `exit 1` |
 | `MODEL_PATH` set but file does not exist | Print error to stderr, `exit 1` |
-| `huggingface-cli download` fails | The command's non-zero exit propagates; script exits non-zero (relies on `set -e`) |
+| `hf download` fails | The command's non-zero exit propagates; script exits non-zero (relies on `set -e`) |
 | `llama-server` exits unexpectedly | Exit code propagates to Docker (container stops with that code) |
 
 The script MUST run with `set -e` (exit on first error) and `set -u` (treat unset variables as errors, except for optional env vars which use `${VAR:-default}` syntax).
@@ -335,7 +335,7 @@ The entrypoint script logic is tested by sourcing or invoking it in a controlled
 
 **Example-based unit tests:**
 - `MODEL_PATH` set → `llama-server` invoked with `--model <path>`
-- `MODEL_REPO` + `MODEL_FILE` set → `huggingface-cli download` called with correct args
+- `MODEL_REPO` + `MODEL_FILE` set → `hf download` called with correct args
 - `HF_TOKEN` set → `--token` flag present in download command
 - `HF_TOKEN` not set → `--token` flag absent
 - `--download-only` arg → `llama-server` not invoked, exit 0
