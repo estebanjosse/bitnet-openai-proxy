@@ -189,24 +189,53 @@ jobs:
           echo "====================="
 
           # Validate required OpenAI-compatible fields are present
-          echo "$RESPONSE" | python3 - <<'EOF'
-          import json, sys
-          data = json.load(sys.stdin)
-          assert data.get("object") == "chat.completion", f"Expected object=chat.completion, got: {data.get('object')}"
-          assert "id" in data,      "Missing field: id"
-          assert "created" in data, "Missing field: created"
-          assert "model" in data,   "Missing field: model"
-          choices = data.get("choices", [])
-          assert len(choices) > 0,  "Expected at least one choice"
-          msg = choices[0].get("message", {})
-          assert msg.get("role") == "assistant", f"Expected role=assistant, got: {msg.get('role')}"
-          assert "content" in msg,  "Missing field: choices[0].message.content"
-          assert "finish_reason" in choices[0], "Missing field: choices[0].finish_reason"
+          RESPONSE="$RESPONSE" python3 - <<'EOF'
+          import json, os, sys
+
+          raw = os.environ.get("RESPONSE", "")
+          if not raw:
+              print("ERROR: Empty response body", file=sys.stderr)
+              sys.exit(1)
+
+          try:
+              data = json.loads(raw)
+          except json.JSONDecodeError as e:
+              print(f"ERROR: Response is not valid JSON: {e}", file=sys.stderr)
+              print(f"Raw response: {raw!r}", file=sys.stderr)
+              sys.exit(1)
+
+          errors = []
+
+          if data.get("object") != "chat.completion":
+              errors.append(f"  object: expected 'chat.completion', got {data.get('object')!r}")
+          for field in ("id", "created", "model"):
+              if field not in data:
+                  errors.append(f"  missing top-level field: '{field}'")
+
+          choices = data.get("choices")
+          if not choices:
+              errors.append("  choices: expected non-empty array, got none")
+          else:
+              msg = choices[0].get("message", {})
+              if msg.get("role") != "assistant":
+                  errors.append(f"  choices[0].message.role: expected 'assistant', got {msg.get('role')!r}")
+              if "content" not in msg:
+                  errors.append("  missing field: choices[0].message.content")
+              if "finish_reason" not in choices[0]:
+                  errors.append("  missing field: choices[0].finish_reason")
+
           usage = data.get("usage", {})
-          assert "prompt_tokens" in usage,     "Missing field: usage.prompt_tokens"
-          assert "completion_tokens" in usage, "Missing field: usage.completion_tokens"
-          assert "total_tokens" in usage,      "Missing field: usage.total_tokens"
-          print("All OpenAI-compatible fields validated successfully.")
+          for field in ("prompt_tokens", "completion_tokens", "total_tokens"):
+              if field not in usage:
+                  errors.append(f"  missing field: usage.{field}")
+
+          if errors:
+              print("FAILED: OpenAI-compatibility validation errors:", file=sys.stderr)
+              for e in errors:
+                  print(e, file=sys.stderr)
+              sys.exit(1)
+
+          print(f"OK: OpenAI-compatible response validated ({usage.get('total_tokens')} tokens, finish_reason={choices[0].get('finish_reason')!r})")
           EOF
 
       - name: Stop and remove container
