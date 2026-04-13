@@ -249,6 +249,9 @@ jobs:
     needs: [smoke-test]
     # Only push when smoke-test succeeded and this is not a pull request
     if: needs.smoke-test.result == 'success' && github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
