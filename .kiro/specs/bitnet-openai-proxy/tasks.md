@@ -193,7 +193,7 @@ This implementation plan breaks down the bitnet-openai-proxy feature into discre
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 6.2_
 
 - [ ] 9. Add README documentation
-  - [ ] 9.1 Update README with usage examples and build documentation
+  - [x] 9.1 Update README with usage examples and build documentation
     - Add quick start examples for demo mode
     - Add quick start examples for production mode (HF download and mounted volume)
     - Add Docker Compose example

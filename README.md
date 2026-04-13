@@ -85,7 +85,7 @@ Pre-download the model once, then bind-mount it for fast, reproducible container
 ```bash
 # Download once
 mkdir -p ./models
-huggingface-cli download microsoft/bitnet-b1.58-2B-4T-gguf \
+hf download microsoft/bitnet-b1.58-2B-4T-gguf \
   ggml-model-i2_s.gguf --local-dir ./models
 
 # Run with mounted model
@@ -155,7 +155,7 @@ The model is **never baked into the production image**. Model files are large, c
 | `CTX_SIZE` | `2048` | Context window size (tokens). |
 | `N_THREADS` | *(auto)* | Number of CPU threads. Defaults to all available cores. |
 | `N_PARALLEL` | `1` | Number of parallel inference slots (concurrent requests). |
-| `LOG_LEVEL` | `info` | Server log verbosity (`debug`, `info`, `warn`, `error`). |
+| `LOG_LEVEL` | `info` | Server log verbosity. Accepted values: `debug`, `info`, `warn`, `error`. |
 
 ---
 
@@ -295,37 +295,45 @@ docker pull ghcr.io/estebanjosse/bitnet-openai-proxy:1.2.3
 
 ## CPU Optimisation & Portability
 
-BitNet.cpp ships with several architecture-specific optimised kernels. The Docker build targets a sensible baseline for portability:
+BitNet.cpp ships with several architecture-specific optimised kernels. The `CMAKE_EXTRA_FLAGS` build argument lets you select the right kernel path for your hardware.
 
-| Build flag | Notes |
-|------------|-------|
-| `-DBITNET_AVX2=ON` | Default for x86-64; requires Haswell (2013) or later |
-| `-DBITNET_AVX512=ON` | Optional, significant throughput gain on server CPUs |
-| `-DBITNET_ARM_TL1=ON` | For ARM builds (Apple Silicon, ARM servers) |
+| `CMAKE_EXTRA_FLAGS` value | Architecture | Notes |
+|---------------------------|-------------|-------|
+| `-DBITNET_X86_TL2=OFF` *(default)* | x86-64 | Portable i2_s quantisation path; runs on any x86-64 CPU |
+| `-DBITNET_X86_TL2=ON` | x86-64 | TL2 LUT kernels; higher throughput on modern x86-64 CPUs |
+| `-DBITNET_ARM_TL1=ON` | ARM64 | TL1 kernels for ARM64 (Apple Silicon, ARM servers) |
 
-> **Note:** The pre-built GHCR images target `x86-64-v3` (AVX2). For ARM or AVX-512 workloads, build the image locally with the appropriate flags.
+> **Note:** The pre-built GHCR images use the default portable i2_s path (`-DBITNET_X86_TL2=OFF`). For TL2 or ARM64 workloads, build the image locally with the appropriate flags.
 
 ### Local build
 
 ```bash
-# x86-64 with AVX2 (default)
+# x86-64 i2_s — portable default (any x86-64 CPU)
 docker build -t bitnet-openai-proxy .
 
-# x86-64 with AVX-512
-docker build --build-arg CMAKE_EXTRA_FLAGS="-DBITNET_AVX512=ON" \
-  -t bitnet-openai-proxy:avx512 .
+# x86-64 TL2 kernels — higher throughput on modern x86-64 CPUs
+docker build \
+  --build-arg CMAKE_EXTRA_FLAGS="-DBITNET_X86_TL2=ON" \
+  -t bitnet-openai-proxy:tl2 .
 
-# ARM64
-docker build --platform linux/arm64 \
+# ARM64 TL1 kernels — Apple Silicon, ARM servers
+docker build \
+  --platform linux/arm64 \
   --build-arg CMAKE_EXTRA_FLAGS="-DBITNET_ARM_TL1=ON" \
   -t bitnet-openai-proxy:arm64 .
+
+# Demo image (model baked in), portable default
+docker build --target demo -t bitnet-openai-proxy:demo .
 ```
+
+You can also pin a specific BitNet.cpp commit with `--build-arg BITNET_COMMIT=<sha>` to test a particular upstream version.
 
 ### Performance tips
 
 - Set `N_THREADS` to match your physical core count (not hyperthreaded count) for best throughput.
 - Use `N_PARALLEL` > 1 only if you expect concurrent requests; each parallel slot consumes additional memory.
 - Pin the container to specific CPUs with `--cpuset-cpus` to avoid NUMA effects on multi-socket systems.
+- For maximum throughput on modern x86-64 hardware, build with `-DBITNET_X86_TL2=ON`.
 
 ---
 
