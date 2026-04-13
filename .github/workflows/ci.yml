@@ -1,0 +1,322 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*.*.*'
+  pull_request:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/bitnet-openai-proxy
+
+jobs:
+  # ── Build production image ────────────────────────────────────────────────
+  build-production:
+    name: Build production image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate production image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          flavor: |
+            latest=false
+          tags: |
+            # Push to main: latest + main-<sha7>
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=main-,format=short,enable={{is_default_branch}}
+            # Version tag vX.Y.Z: semver major, major.minor, major.minor.patch, latest
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            # Pull request: pr-<number> (no push)
+            type=ref,event=pr,prefix=pr-
+
+      - name: Build production image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ── Build demo image ──────────────────────────────────────────────────────
+  build-demo:
+    name: Build demo image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate demo image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          flavor: |
+            latest=false
+            suffix=-demo
+          tags: |
+            # Push to main: latest-demo + main-<sha7>-demo
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=main-,format=short,enable={{is_default_branch}}
+            # Version tag vX.Y.Z: semver tags with -demo suffix
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            # Pull request: pr-<number>-demo (no push)
+            type=ref,event=pr,prefix=pr-
+
+      - name: Build demo image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: demo
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ── Smoke test ────────────────────────────────────────────────────────────
+  smoke-test:
+    name: Smoke test
+    runs-on: ubuntu-latest
+    needs: [build-production]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build production image for smoke test
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: bitnet-openai-proxy:smoke-test
+          load: true
+          cache-from: type=gha
+
+      - name: Install huggingface-hub CLI
+        run: pip install --quiet huggingface-hub
+
+      - name: Download test GGUF model
+        run: |
+          hf download microsoft/bitnet-b1.58-2B-4T-gguf \
+            ggml-model-i2_s.gguf \
+            --local-dir /tmp/test-model
+
+      - name: Start production container
+        run: |
+          docker run -d \
+            --name smoke-test-container \
+            -p 8080:8080 \
+            -v /tmp/test-model/ggml-model-i2_s.gguf:/models/test.gguf:ro \
+            -e MODEL_PATH=/models/test.gguf \
+            bitnet-openai-proxy:smoke-test
+
+      - name: Wait for health endpoint (60 s timeout)
+        run: |
+          echo "Waiting for /health to return HTTP 200..."
+          for i in $(seq 1 12); do
+            if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
+              echo "Health check passed on attempt $i"
+              exit 0
+            fi
+            echo "Attempt $i/12 — not ready yet, waiting 5 s..."
+            sleep 5
+          done
+          echo "ERROR: /health did not return HTTP 200 within 60 seconds"
+          exit 1
+
+      - name: Assert POST /v1/chat/completions returns OpenAI-compatible response
+        run: |
+          RESPONSE=$(curl -sf \
+            -X POST http://localhost:8080/v1/chat/completions \
+            -H "Content-Type: application/json" \
+            -d '{"model":"test","messages":[{"role":"user","content":"hi"}],"max_tokens":16}')
+
+          echo "=== Response body ==="
+          echo "$RESPONSE" | python3 -m json.tool
+          echo "====================="
+
+          # Validate required OpenAI-compatible fields are present
+          RESPONSE="$RESPONSE" python3 - <<'EOF'
+          import json, os, sys
+
+          raw = os.environ.get("RESPONSE", "")
+          if not raw:
+              print("ERROR: Empty response body", file=sys.stderr)
+              sys.exit(1)
+
+          try:
+              data = json.loads(raw)
+          except json.JSONDecodeError as e:
+              print(f"ERROR: Response is not valid JSON: {e}", file=sys.stderr)
+              print(f"Raw response: {raw!r}", file=sys.stderr)
+              sys.exit(1)
+
+          errors = []
+
+          if data.get("object") != "chat.completion":
+              errors.append(f"  object: expected 'chat.completion', got {data.get('object')!r}")
+          for field in ("id", "created", "model"):
+              if field not in data:
+                  errors.append(f"  missing top-level field: '{field}'")
+
+          choices = data.get("choices")
+          if not choices:
+              errors.append("  choices: expected non-empty array, got none")
+          else:
+              msg = choices[0].get("message", {})
+              if msg.get("role") != "assistant":
+                  errors.append(f"  choices[0].message.role: expected 'assistant', got {msg.get('role')!r}")
+              if "content" not in msg:
+                  errors.append("  missing field: choices[0].message.content")
+              if "finish_reason" not in choices[0]:
+                  errors.append("  missing field: choices[0].finish_reason")
+
+          usage = data.get("usage", {})
+          for field in ("prompt_tokens", "completion_tokens", "total_tokens"):
+              if field not in usage:
+                  errors.append(f"  missing field: usage.{field}")
+
+          if errors:
+              print("FAILED: OpenAI-compatibility validation errors:", file=sys.stderr)
+              for e in errors:
+                  print(e, file=sys.stderr)
+              sys.exit(1)
+
+          print(f"OK: OpenAI-compatible response validated ({usage.get('total_tokens')} tokens, finish_reason={choices[0].get('finish_reason')!r})")
+          EOF
+
+      - name: Stop and remove container
+        if: always()
+        run: docker rm -f smoke-test-container || true
+
+  # ── Push to GHCR ──────────────────────────────────────────────────────────
+  push-ghcr:
+    name: Push images to GHCR
+    runs-on: ubuntu-latest
+    needs: [smoke-test]
+    # Only push when smoke-test succeeded and this is not a pull request
+    if: needs.smoke-test.result == 'success' && github.event_name != 'pull_request'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate production image metadata
+        id: meta-production
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          flavor: |
+            latest=false
+          tags: |
+            # Push to main: latest + main-<sha7>
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=main-,format=short,enable={{is_default_branch}}
+            # Version tag vX.Y.Z: semver major, major.minor, major.minor.patch, latest
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+
+      - name: Generate demo image metadata
+        id: meta-demo
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          flavor: |
+            latest=false
+            suffix=-demo
+          tags: |
+            # Push to main: latest-demo + main-<sha7>-demo
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=main-,format=short,enable={{is_default_branch}}
+            # Version tag vX.Y.Z: semver tags with -demo suffix
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+
+      - name: Push production image to GHCR
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta-production.outputs.tags }}
+          labels: ${{ steps.meta-production.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Push demo image to GHCR
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: demo
+          push: true
+          tags: ${{ steps.meta-demo.outputs.tags }}
+          labels: ${{ steps.meta-demo.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

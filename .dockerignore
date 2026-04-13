@@ -1,0 +1,11 @@
+# Exclude Git metadata and IDE/tool directories
+.git/
+.kiro/
+
+# Exclude test artifacts
+tests/
+*.test.*
+*.spec.*
+
+# Keep the BitNet submodule (required for the build)
+!3rdparty/BitNet
