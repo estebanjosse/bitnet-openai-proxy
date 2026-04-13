@@ -150,7 +150,7 @@ jobs:
 
       - name: Download test GGUF model
         run: |
-          huggingface-cli download microsoft/bitnet-b1.58-2B-4T-gguf \
+          hf download microsoft/bitnet-b1.58-2B-4T-gguf \
             ggml-model-i2_s.gguf \
             --local-dir /tmp/test-model
 
