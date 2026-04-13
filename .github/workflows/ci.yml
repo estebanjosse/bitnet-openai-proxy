@@ -177,13 +177,37 @@ jobs:
           echo "ERROR: /health did not return HTTP 200 within 60 seconds"
           exit 1
 
-      - name: Assert POST /v1/chat/completions returns HTTP 200
+      - name: Assert POST /v1/chat/completions returns OpenAI-compatible response
         run: |
-          curl -sf \
+          RESPONSE=$(curl -sf \
             -X POST http://localhost:8080/v1/chat/completions \
             -H "Content-Type: application/json" \
-            -d '{"model":"test","messages":[{"role":"user","content":"hi"}],"max_tokens":1}' \
-            > /dev/null
+            -d '{"model":"test","messages":[{"role":"user","content":"hi"}],"max_tokens":16}')
+
+          echo "=== Response body ==="
+          echo "$RESPONSE" | python3 -m json.tool
+          echo "====================="
+
+          # Validate required OpenAI-compatible fields are present
+          echo "$RESPONSE" | python3 - <<'EOF'
+          import json, sys
+          data = json.load(sys.stdin)
+          assert data.get("object") == "chat.completion", f"Expected object=chat.completion, got: {data.get('object')}"
+          assert "id" in data,      "Missing field: id"
+          assert "created" in data, "Missing field: created"
+          assert "model" in data,   "Missing field: model"
+          choices = data.get("choices", [])
+          assert len(choices) > 0,  "Expected at least one choice"
+          msg = choices[0].get("message", {})
+          assert msg.get("role") == "assistant", f"Expected role=assistant, got: {msg.get('role')}"
+          assert "content" in msg,  "Missing field: choices[0].message.content"
+          assert "finish_reason" in choices[0], "Missing field: choices[0].finish_reason"
+          usage = data.get("usage", {})
+          assert "prompt_tokens" in usage,     "Missing field: usage.prompt_tokens"
+          assert "completion_tokens" in usage, "Missing field: usage.completion_tokens"
+          assert "total_tokens" in usage,      "Missing field: usage.total_tokens"
+          print("All OpenAI-compatible fields validated successfully.")
+          EOF
 
       - name: Stop and remove container
         if: always()
