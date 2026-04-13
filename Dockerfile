@@ -1,4 +1,8 @@
-# BITNET_COMMIT: Git commit SHA to clone from estebanjosse/BitNet.
+# BITNET_REPO:   Full URL of the Git repository to clone BitNet.cpp from.
+#                Defaults to https://github.com/estebanjosse/BitNet.
+#                Override with --build-arg BITNET_REPO=<https://...> to use a fork or mirror.
+#
+# BITNET_COMMIT: Git commit SHA to clone from BITNET_REPO.
 #                Defaults to the commit pinned in the 3rdparty/BitNet submodule.
 #                Override with --build-arg BITNET_COMMIT=<sha> to test a specific commit.
 #
@@ -10,6 +14,7 @@
 # ── Builder stage ─────────────────────────────────────────────────────────────
 FROM ubuntu:22.04 AS builder
 
+ARG BITNET_REPO=https://github.com/estebanjosse/BitNet
 ARG BITNET_COMMIT=caf1ce1de9096b7c32fb058061cf08c79a972761
 ARG CMAKE_EXTRA_FLAGS="-DBITNET_X86_TL2=OFF"
 
@@ -53,7 +58,7 @@ WORKDIR /build
 # A full git clone is required so that `git submodule update` can resolve
 # the nested llama.cpp submodule — a plain COPY of the directory has no
 # .git metadata and cannot initialise submodules.
-RUN git clone https://github.com/estebanjosse/BitNet /build/BitNet \
+RUN git clone $BITNET_REPO /build/BitNet \
     && git -C /build/BitNet checkout "$BITNET_COMMIT" \
     && git -C /build/BitNet submodule update --init --recursive
 

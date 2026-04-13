@@ -326,7 +326,7 @@ docker build \
 docker build --target demo -t bitnet-openai-proxy:demo .
 ```
 
-You can also pin a specific BitNet.cpp commit with `--build-arg BITNET_COMMIT=<sha>` to test a particular upstream version.
+You can also pin a specific BitNet.cpp commit with `--build-arg BITNET_COMMIT=<sha>` to test a particular upstream version, or point to a fork with `--build-arg BITNET_REPO=https://github.com/<owner>/<name>`.
 
 ### Performance tips
 
@@ -356,6 +356,8 @@ The **demo image** intentionally breaks this rule for convenience — acceptable
 ### Why a pinned BitNet.cpp commit?
 
 Reproducibility. BitNet.cpp is under active development; pinning to a tested commit ensures that the image build is deterministic and that behaviour does not change unexpectedly between CI runs. The pin is updated intentionally as part of the release process.
+
+The `BITNET_REPO` build argument lets you point the build at a fork without modifying the Dockerfile, which is useful for testing upstream patches or custom kernels before they land in the default repo.
 
 ---
 
